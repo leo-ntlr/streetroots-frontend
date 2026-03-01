@@ -447,7 +447,7 @@ function VideoPage() {
             </div>
             <div style={{ background: '#111', borderRadius: 8, overflow: 'hidden', aspectRatio: '16/9', position: 'relative' }}>
               <video ref={localRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div style={{ position: 'absolute', bottom: 8, left: 12, fontSize: 12, color: '#fff', background: 'rgba(0,0,0,0.5)', padding: '2px 8px', borderRadius: 3' }}>Toi</div>
+              <div style={{ position: 'absolute', bottom: 8, left: 12, fontSize: 12, color: '#fff', background: 'rgba(0,0,0,0.5)', padding: '2px 8px', borderRadius: 3 }}>Toi</div>
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -599,7 +599,7 @@ function TasksPage() {
             <h3 style={{ fontSize: 16, marginBottom: 20, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 2 }}>NOUVELLE TÂCHE</h3>
             <form onSubmit={createTask} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <input style={S.input} placeholder="Titre de la tâche *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required />
-              <textarea style={{ ...S.input, height: 80, resize: 'vertical' }} placeholder="Description (optionnel)" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value })} />
+              <textarea style={{ ...S.input, height: 80, resize: 'vertical' }} placeholder="Description (optionnel)" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
               <select style={S.input} value={form.assignedTo} onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))}>
                 <option value="">Non assigné</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.username}</option>)}
