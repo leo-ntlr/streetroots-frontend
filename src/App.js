@@ -1602,22 +1602,46 @@ function PendingPage() {
 
 // APP INNER
 function AppInner() {
-  const { user, token, loading } = useAuth();
+  const { user, token, loading, logout } = useAuth();
   const [status, setStatus] = useState(null);
+
   useEffect(() => {
     if (!token || !user) return;
+    // Timeout de 5 secondes — si le serveur ne répond pas, on laisse passer
+    const timer = setTimeout(() => setStatus('approved'), 5000);
     fetch(API + '/api/auth/status', { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => r.json())
-      .then(d => setStatus(d.status))
-      .catch(() => setStatus('approved'));
+      .then(r => {
+        if (!r.ok) throw new Error('not ok');
+        return r.json();
+      })
+      .then(d => { clearTimeout(timer); setStatus(d.status || 'approved'); })
+      .catch(() => { clearTimeout(timer); setStatus('approved'); });
+    return () => clearTimeout(timer);
   }, [token, user]);
 
-  if (loading || (user && status === null)) return (
+  // Si pas de user et pas de token, affiche login directement
+  if (!loading && !user && !token) return <LoginPage />;
+
+  // Chargement auth
+  if (loading) return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontFamily: 'sans-serif' }}>
-      Chargement...
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 28, letterSpacing: 6, marginBottom: 20, color: '#f0ebe0' }}>street<span style={{ color: '#e63022' }}>Roots</span></div>
+        <div style={{ color: '#555', fontSize: 13 }}>Connexion...</div>
+      </div>
     </div>
   );
+
   if (!user) return <LoginPage />;
+  if (user && status === null) return (
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontFamily: 'sans-serif' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 28, letterSpacing: 6, marginBottom: 20, color: '#f0ebe0' }}>street<span style={{ color: '#e63022' }}>Roots</span></div>
+        <div style={{ color: '#555', fontSize: 13 }}>Chargement...</div>
+        <button style={{ ...S.btn('ghost'), marginTop: 24, fontSize: 11 }} onClick={logout}>Problème ? Se déconnecter</button>
+      </div>
+    </div>
+  );
   if (status === 'pending') return <PendingPage />;
   return <WSProvider><AppLayout /></WSProvider>;
 }
