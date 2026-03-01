@@ -1572,24 +1572,41 @@ function AppLayout() {
   );
 }
 
-export default function App() {
-  const params = new URLSearchParams(window.location.search);
-  const inviteCode = params.get('code');
-
+// PENDING PAGE
+function PendingPage() {
+  const { token, logout } = useAuth();
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const r = await fetch(API + '/api/auth/status', { headers: { Authorization: 'Bearer ' + token } });
+        const d = await r.json();
+        if (d.status === 'approved') window.location.reload();
+      } catch {}
+    };
+    const interval = setInterval(check, 3000);
+    return () => clearInterval(interval);
+  }, [token]);
   return (
-    <AuthProvider>
-      <AppInner inviteCode={inviteCode} />
-    </AuthProvider>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f0ebe0', textAlign: 'center', fontFamily: 'sans-serif' }}>
+      <div>
+        <div style={{ fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 32, letterSpacing: 6, marginBottom: 24 }}>street<span style={{ color: '#e63022' }}>Roots</span></div>
+        <div style={{ width: 48, height: 48, border: '3px solid #e63022', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
+        <style dangerouslySetInnerHTML={{ __html: '@keyframes spin { to { transform: rotate(360deg); } }' }} />
+        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Compte en attente de validation</div>
+        <div style={{ fontSize: 13, color: '#666', maxWidth: 300 }}>Le fondateur doit approuver ton accès. Cette page se met à jour automatiquement.</div>
+        <button style={{ ...S.btn('ghost'), marginTop: 32, fontSize: 12 }} onClick={logout}>Se déconnecter</button>
+      </div>
+    </div>
   );
 }
 
-function AppInner({ inviteCode }) {
+// APP INNER
+function AppInner() {
   const { user, token, loading } = useAuth();
   const [status, setStatus] = useState(null);
-
   useEffect(() => {
     if (!token || !user) return;
-    fetch(`${API}/api/auth/status`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(API + '/api/auth/status', { headers: { Authorization: 'Bearer ' + token } })
       .then(r => r.json())
       .then(d => setStatus(d.status))
       .catch(() => setStatus('approved'));
@@ -1600,44 +1617,15 @@ function AppInner({ inviteCode }) {
       Chargement...
     </div>
   );
-
   if (!user) return <LoginPage />;
-
   if (status === 'pending') return <PendingPage />;
-
-  return (
-    <WSProvider>
-      <AppLayout />
-    </WSProvider>
-  );
+  return <WSProvider><AppLayout /></WSProvider>;
 }
 
-// PENDING PAGE — auto-refresh quand approuvé
-function PendingPage() {
-  const { token, logout } = useAuth();
-
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const r = await fetch(`${API}/api/auth/status`, { headers: { Authorization: `Bearer ${token}` } });
-        const d = await r.json();
-        if (d.status === 'approved') window.location.reload();
-      } catch {}
-    };
-    const interval = setInterval(check, 3000);
-    return () => clearInterval(interval);
-  }, [token]);
-
+export default function App() {
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f0ebe0', textAlign: 'center', fontFamily: 'DM Sans, sans-serif' }}>
-      <div>
-        <div style={{ fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 32, letterSpacing: 6, marginBottom: 24 }}>street<span style={{ color: '#e63022' }}>Roots</span></div>
-        <div style={{ width: 48, height: 48, border: '3px solid #e63022', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Compte en attente de validation</div>
-        <div style={{ fontSize: 13, color: '#666', maxWidth: 300 }}>Le fondateur doit approuver ton accès. Cette page se met à jour automatiquement dès que c'est validé.</div>
-        <button style={{ ...S.btn('ghost'), marginTop: 32, fontSize: 12 }} onClick={logout}>Se déconnecter</button>
-      </div>
-    </div>
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
