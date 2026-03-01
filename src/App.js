@@ -145,7 +145,7 @@ function WSProvider({ children }) {
     return () => ws.close();
   }, [token]);
 
-  return <WSContext.Provider value={{ send, on, online }}>{children}</WSContext.Provider>;
+  return <WSContext.Provider value={{ send, on, online, clients }}>{children}</WSContext.Provider>;
 }
 
 // ============================================================
@@ -672,7 +672,9 @@ function TasksPage() {
                     {STATUSES.filter(s => s.id !== task.status).map(s => (
                       <button key={s.id} style={{ ...S.btn('sm'), fontSize: 9, padding: '3px 6px', background: '#2a2a2a' }} onClick={() => updateStatus(task, s.id)}>{s.label}</button>
                     ))}
-                    <button style={{ ...S.btn('sm'), fontSize: 9, padding: '3px 6px', background: '#3a0000' }} onClick={() => deleteTask(task.id)}>✕</button>
+                    {user.role === 'founder' && (
+                      <button style={{ ...S.btn('sm'), fontSize: 9, padding: '3px 6px', background: '#3a0000' }} onClick={() => deleteTask(task.id)}>✕ Suppr</button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -736,8 +738,12 @@ function FounderPage() {
     load();
   };
 
+  const [inviteDuration, setInviteDuration] = useState('48');
+  const [invitePermanent, setInvitePermanent] = useState(false);
+
   const genInvite = async () => {
-    const data = await api.post('/api/founder/invite', { expiresInHours: 48 });
+    const hours = invitePermanent ? 87600 : parseInt(inviteDuration);
+    const data = await api.post('/api/founder/invite', { expiresInHours: hours });
     const base = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
     setInviteLink(`${base}?code=${data.code}`);
   };
@@ -747,17 +753,32 @@ function FounderPage() {
       <h2 style={{ fontSize: 18, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3, marginBottom: 16 }}>DASHBOARD FONDATEUR</h2>
 
       {/* Generate invite */}
-      <div style={{ ...S.card, marginBottom: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>🔗 Générer un lien d'invitation</div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button style={S.btn()} onClick={genInvite}>Générer un lien (valable 48h)</button>
-          {inviteLink && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1 }}>
-              <input style={{ ...S.input, flex: 1 }} value={inviteLink} readOnly />
-              <button style={S.btn('ghost')} onClick={() => navigator.clipboard.writeText(inviteLink)}>Copier</button>
-            </div>
+      <div style={{ ...S.card, marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>🔗 Lien d'invitation</div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#aaa' }}>
+            <input type="checkbox" checked={invitePermanent} onChange={e => setInvitePermanent(e.target.checked)} style={{ accentColor: '#e63022' }} />
+            Lien permanent
+          </label>
+          {!invitePermanent && (
+            <select style={{ ...S.input, width: 'auto' }} value={inviteDuration} onChange={e => setInviteDuration(e.target.value)}>
+              <option value="1">1 heure</option>
+              <option value="6">6 heures</option>
+              <option value="24">24 heures</option>
+              <option value="48">48 heures</option>
+              <option value="168">7 jours</option>
+              <option value="720">30 jours</option>
+            </select>
           )}
+          <button style={S.btn()} onClick={genInvite}>Générer le lien</button>
         </div>
+        {inviteLink && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input style={{ ...S.input, flex: 1, fontSize: 11 }} value={inviteLink} readOnly />
+            <button style={S.btn('ghost')} onClick={() => { navigator.clipboard.writeText(inviteLink); }}>Copier</button>
+          </div>
+        )}
+        {inviteLink && invitePermanent && <div style={{ fontSize: 11, color: '#e63022', marginTop: 6 }}>⚠️ Ce lien n'expire jamais — à partager avec précaution</div>}
       </div>
 
       {/* Tabs */}
@@ -811,18 +832,72 @@ function FounderPage() {
   );
 }
 
-// CANVAS (Design Studio)
+// DESIGN STUDIO — Full featured
+const CLOTHING_TEMPLATES = [
+  {
+    id: 'tshirt', name: 'T-Shirt', 
+    svg: `<svg viewBox="0 0 300 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M60 40 L20 80 L60 100 L60 220 L240 220 L240 100 L280 80 L240 40 L200 20 Q180 10 150 10 Q120 10 100 20 Z" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+    </svg>`
+  },
+  {
+    id: 'hoodie', name: 'Hoodie',
+    svg: `<svg viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50 50 L10 100 L55 120 L55 260 L245 260 L245 120 L290 100 L250 50 L210 30 Q190 5 150 5 Q110 5 90 30 Z" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+      <ellipse cx="150" cy="25" rx="30" ry="18" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+    </svg>`
+  },
+  {
+    id: 'jacket', name: 'Veste',
+    svg: `<svg viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M50 40 L10 100 L55 115 L55 260 L145 260 L145 40 Z" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+      <path d="M250 40 L290 100 L245 115 L245 260 L155 260 L155 40 Z" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+      <line x1="150" y1="40" x2="150" y2="260" stroke="#444" stroke-width="2" stroke-dasharray="4"/>
+    </svg>`
+  },
+  {
+    id: 'cap', name: 'Casquette',
+    svg: `<svg viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="150" cy="90" rx="130" ry="80" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+      <ellipse cx="150" cy="90" rx="130" ry="20" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+      <path d="M20 100 Q10 120 50 130 L150 140 L250 130 Q290 120 280 100" fill="#1e1e1e" stroke="#444" stroke-width="2"/>
+    </svg>`
+  },
+  {
+    id: 'blank', name: 'Vierge',
+    svg: `<svg viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="10" y="10" width="280" height="280" fill="#111" stroke="#333" stroke-width="1" stroke-dasharray="6"/>
+      <text x="150" y="155" text-anchor="middle" fill="#444" font-size="12" font-family="sans-serif">Zone libre</text>
+    </svg>`
+  },
+];
+
+const PALETTE_PRESETS = [
+  { name: 'streetRoots', colors: ['#e63022', '#f0ebe0', '#0a0a0a', '#7a7a4a', '#2a2a2a'] },
+  { name: 'Urban', colors: ['#1a1a2e', '#16213e', '#0f3460', '#e94560', '#ffffff'] },
+  { name: 'Earth', colors: ['#8b5e3c', '#c49a6c', '#e8d5b7', '#4a3728', '#2d1b0e'] },
+  { name: 'Neon', colors: ['#00ff88', '#00ccff', '#ff00aa', '#ffff00', '#111111'] },
+];
+
 function DesignPage() {
   const { user } = useAuth();
   const { send, on } = useWS();
   const canvasRef = useRef(null);
+  const overlayRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [tool, setTool] = useState('pen');
   const [color, setColor] = useState('#e63022');
-  const [size, setSize] = useState(4);
-  const drawing = useRef(false);
-  const lastPos = useRef(null);
+  const [size, setSize] = useState(6);
+  const [opacity, setOpacity] = useState(100);
+  const [template, setTemplate] = useState(null);
+  const [tab, setTab] = useState('draw'); // draw | templates | images
+  const [importedImages, setImportedImages] = useState([]);
+  const [selectedImg, setSelectedImg] = useState(null);
   const [votes, setVotes] = useState({ up: 0, down: 0, heart: 0 });
   const [myVote, setMyVote] = useState(null);
+  const [palette, setPalette] = useState(PALETTE_PRESETS[0].colors);
+  const drawing = useRef(false);
+  const lastPos = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -833,51 +908,115 @@ function DesignPage() {
 
   useEffect(() => {
     const off = on('CANVAS_UPDATE', (d) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
+      if (!canvasRef.current) return;
       const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0);
+      img.onload = () => canvasRef.current.getContext('2d').drawImage(img, 0, 0);
       img.src = d.data;
     });
     return off;
   }, [on]);
 
   useEffect(() => {
-    const off = on('VOTE', (d) => {
-      setVotes(p => ({ ...p, [d.vote]: (p[d.vote] || 0) + 1 }));
-    });
+    const off = on('VOTE', (d) => setVotes(p => ({ ...p, [d.vote]: (p[d.vote] || 0) + 1 })));
     return off;
   }, [on]);
 
   const getPos = (e) => {
     const r = canvasRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width / r.width;
+    const scaleY = canvasRef.current.height / r.height;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - r.left, y: clientY - r.top };
+    return { x: (clientX - r.left) * scaleX, y: (clientY - r.top) * scaleY };
   };
 
-  const startDraw = (e) => { drawing.current = true; lastPos.current = getPos(e); };
+  const startDraw = (e) => { e.preventDefault(); drawing.current = true; lastPos.current = getPos(e); };
 
   const draw = (e) => {
+    e.preventDefault();
     if (!drawing.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     const pos = getPos(e);
+    ctx.globalAlpha = opacity / 100;
     ctx.beginPath();
-    ctx.strokeStyle = tool === 'eraser' ? '#0f0f0f' : color;
-    ctx.lineWidth = tool === 'eraser' ? size * 4 : size;
+    if (tool === 'eraser') {
+      ctx.strokeStyle = '#0f0f0f';
+      ctx.lineWidth = size * 4;
+    } else if (tool === 'spray') {
+      for (let i = 0; i < 20; i++) {
+        const rx = (Math.random() - 0.5) * size * 3;
+        const ry = (Math.random() - 0.5) * size * 3;
+        ctx.fillStyle = color;
+        ctx.fillRect(pos.x + rx, pos.y + ry, 1.5, 1.5);
+      }
+      lastPos.current = pos;
+      ctx.globalAlpha = 1;
+      return;
+    } else {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size;
+    }
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.moveTo(lastPos.current.x, lastPos.current.y);
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
+    ctx.globalAlpha = 1;
     lastPos.current = pos;
   };
 
-  const endDraw = () => {
+  const endDraw = (e) => {
+    if (!drawing.current) return;
     drawing.current = false;
-    const data = canvasRef.current.toDataURL();
-    send({ type: 'CANVAS_UPDATE', data });
+    send({ type: 'CANVAS_UPDATE', data: canvasRef.current.toDataURL() });
+  };
+
+  const applyTemplate = (tmpl) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0f0f0f';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const img = new Image();
+    const blob = new Blob([tmpl.svg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+      const x = (canvas.width - img.width * scale) / 2;
+      const y = (canvas.height - img.height * scale) / 2;
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      URL.revokeObjectURL(url);
+      setTemplate(tmpl.id);
+      setTab('draw');
+      send({ type: 'CANVAS_UPDATE', data: canvas.toDataURL() });
+    };
+    img.src = url;
+  };
+
+  const importImage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const imgData = { id: Date.now(), name: file.name, src: ev.target.result };
+      setImportedImages(p => [...p, imgData]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const placeImageOnCanvas = (imgSrc) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min((canvas.width * 0.5) / img.width, (canvas.height * 0.5) / img.height);
+      const x = (canvas.width - img.width * scale) / 2;
+      const y = (canvas.height - img.height * scale) / 2;
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+      send({ type: 'CANVAS_UPDATE', data: canvas.toDataURL() });
+      setTab('draw');
+    };
+    img.src = imgSrc;
   };
 
   const clearCanvas = () => {
@@ -888,6 +1027,13 @@ function DesignPage() {
     send({ type: 'CANVAS_UPDATE', data: canvas.toDataURL() });
   };
 
+  const exportCanvas = () => {
+    const link = document.createElement('a');
+    link.download = 'streetroots-design.png';
+    link.href = canvasRef.current.toDataURL('image/png');
+    link.click();
+  };
+
   const vote = (v) => {
     if (myVote === v) return;
     setMyVote(v);
@@ -895,44 +1041,145 @@ function DesignPage() {
     send({ type: 'VOTE', vote: v, targetId: 'canvas' });
   };
 
-  const TOOLS = [['pen', '✏️'], ['eraser', '⬜']];
-  const COLORS = ['#e63022', '#f0ebe0', '#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#000000', '#ffeb3b'];
+  const TOOLS = [
+    { id: 'pen', icon: '✏️', label: 'Stylo' },
+    { id: 'brush', icon: '🖌️', label: 'Pinceau' },
+    { id: 'spray', icon: '🎨', label: 'Spray' },
+    { id: 'eraser', icon: '⬜', label: 'Gomme' },
+  ];
 
   return (
-    <div style={{ padding: 20, display: 'flex', gap: 16, height: '100%', boxSizing: 'border-box' }}>
-      {/* Toolbar */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 52 }}>
-        {TOOLS.map(([id, icon]) => (
-          <button key={id} onClick={() => setTool(id)} style={{ ...S.btn(tool === id ? 'primary' : 'ghost'), padding: '10px', fontSize: 18, width: 44, height: 44 }}>{icon}</button>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* TOP TABS */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #222', background: '#111', flexShrink: 0 }}>
+        {[['draw', '✏️ Dessiner'], ['templates', '👕 Mockups'], ['images', '🖼️ Images']].map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} style={{ ...S.btn('ghost'), borderRadius: 0, fontSize: 12, padding: '10px 14px', borderBottom: tab === id ? '2px solid #e63022' : '2px solid transparent', color: tab === id ? '#f0ebe0' : '#666' }}>{label}</button>
         ))}
-        <div style={{ width: 44, height: 1, background: '#333', margin: '4px 0' }} />
-        {COLORS.map(c => (
-          <div key={c} onClick={() => { setColor(c); setTool('pen'); }} style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c && tool !== 'eraser' ? '2px solid white' : '2px solid #333', margin: '0 auto' }} />
-        ))}
-        <div style={{ width: 44, height: 1, background: '#333', margin: '4px 0' }} />
-        <input type="range" min="1" max="20" value={size} onChange={e => setSize(+e.target.value)} style={{ writingMode: 'vertical-lr', height: 80, cursor: 'pointer' }} />
-        <div style={{ fontSize: 9, color: '#666', textAlign: 'center' }}>{size}px</div>
-        <button onClick={clearCanvas} style={{ ...S.btn('ghost'), padding: '6px', fontSize: 16, width: 44 }}>🗑️</button>
-      </div>
-
-      {/* Canvas */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <canvas
-          ref={canvasRef} width={900} height={540}
-          style={{ background: '#0f0f0f', borderRadius: 6, cursor: tool === 'eraser' ? 'cell' : 'crosshair', maxWidth: '100%', border: '1px solid #222' }}
-          onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
-          onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
-        />
-        {/* Vote bar */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: '#666' }}>Vote sur ce design :</span>
-          {[['👍', 'up'], ['❤️', 'heart'], ['👎', 'down']].map(([icon, v]) => (
-            <button key={v} onClick={() => vote(v)} style={{ ...S.btn(myVote === v ? 'primary' : 'ghost'), padding: '6px 14px', fontSize: 14 }}>
-              {icon} {votes[v] || 0}
-            </button>
-          ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, padding: '6px 10px' }}>
+          <button onClick={exportCanvas} style={{ ...S.btn('ghost'), fontSize: 11, padding: '4px 10px' }}>⬇️ Export PNG</button>
+          <button onClick={clearCanvas} style={{ ...S.btn('ghost'), fontSize: 11, padding: '4px 10px' }}>🗑️ Effacer</button>
         </div>
       </div>
+
+      {/* TEMPLATES TAB */}
+      {tab === 'templates' && (
+        <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>Clique sur un mockup pour l'appliquer au canvas — tu pourras ensuite dessiner dessus.</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+            {CLOTHING_TEMPLATES.map(tmpl => (
+              <div key={tmpl.id} onClick={() => applyTemplate(tmpl)}
+                style={{ ...S.card, cursor: 'pointer', textAlign: 'center', padding: 12, border: template === tmpl.id ? '1px solid #e63022' : '1px solid #222', transition: 'border 0.2s' }}>
+                <div style={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  dangerouslySetInnerHTML={{ __html: tmpl.svg }} />
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 8, fontWeight: 600 }}>{tmpl.name}</div>
+                {template === tmpl.id && <div style={{ fontSize: 9, color: '#e63022', marginTop: 2 }}>✓ Actif</div>}
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Palettes de couleurs</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {PALETTE_PRESETS.map(preset => (
+                <div key={preset.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, color: '#888', width: 80 }}>{preset.name}</span>
+                  {preset.colors.map(c => (
+                    <div key={c} onClick={() => { setPalette(preset.colors); setColor(c); setTab('draw'); }}
+                      style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', border: '1px solid #444' }} />
+                  ))}
+                  <button onClick={() => { setPalette(preset.colors); setTab('draw'); }} style={{ ...S.btn('sm'), fontSize: 10, padding: '3px 8px' }}>Utiliser</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMAGES TAB */}
+      {tab === 'images' && (
+        <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={importImage} />
+          <button style={{ ...S.btn(), marginBottom: 16 }} onClick={() => fileInputRef.current.click()}>
+            + Importer une image / logo
+          </button>
+          <div style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>Clique sur une image pour la placer au centre du canvas.</div>
+          {importedImages.length === 0 && (
+            <div style={{ ...S.card, textAlign: 'center', padding: 40, color: '#555', fontSize: 13 }}>
+              Aucune image importée.<br/>Importe des logos, photos ou textures.
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+            {importedImages.map(img => (
+              <div key={img.id} style={{ ...S.card, cursor: 'pointer', padding: 8, textAlign: 'center' }} onClick={() => placeImageOnCanvas(img.src)}>
+                <img src={img.src} alt={img.name} style={{ width: '100%', height: 80, objectFit: 'contain', borderRadius: 4 }} />
+                <div style={{ fontSize: 9, color: '#777', marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* DRAW TAB */}
+      {tab === 'draw' && (
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          {/* LEFT TOOLBAR */}
+          <div style={{ width: 56, background: '#111', borderRight: '1px solid #222', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 0', overflowY: 'auto', flexShrink: 0 }}>
+            {TOOLS.map(t => (
+              <button key={t.id} title={t.label} onClick={() => setTool(t.id)}
+                style={{ width: 40, height: 40, background: tool === t.id ? '#e63022' : '#1e1e1e', border: 'none', borderRadius: 6, fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {t.icon}
+              </button>
+            ))}
+            <div style={{ width: 32, height: 1, background: '#333', margin: '4px 0' }} />
+            {/* Color palette */}
+            {palette.map(c => (
+              <div key={c} onClick={() => { setColor(c); if(tool === 'eraser') setTool('pen'); }}
+                style={{ width: 28, height: 28, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c && tool !== 'eraser' ? '2px solid white' : '1px solid #444', flexShrink: 0 }} />
+            ))}
+            {/* Custom color picker */}
+            <div style={{ position: 'relative', width: 28, height: 28 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)', cursor: 'pointer', border: '1px solid #444' }} />
+              <input type="color" value={color} onChange={e => { setColor(e.target.value); if(tool==='eraser') setTool('pen'); }}
+                style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
+            </div>
+            <div style={{ width: 32, height: 1, background: '#333', margin: '2px 0' }} />
+            {/* Size */}
+            <div style={{ fontSize: 8, color: '#555', textAlign: 'center' }}>Taille</div>
+            {[2, 5, 10, 20].map(s => (
+              <div key={s} onClick={() => setSize(s)}
+                style={{ width: 28, height: 28, borderRadius: 4, background: size === s ? '#e63022' : '#1e1e1e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: Math.min(s * 1.2, 22), height: Math.min(s * 1.2, 22), borderRadius: '50%', background: '#f0ebe0' }} />
+              </div>
+            ))}
+            <div style={{ width: 32, height: 1, background: '#333', margin: '2px 0' }} />
+            {/* Opacity */}
+            <div style={{ fontSize: 8, color: '#555', textAlign: 'center' }}>Opacité</div>
+            <div style={{ fontSize: 10, color: '#e63022', fontWeight: 700 }}>{opacity}%</div>
+            <input type="range" min="10" max="100" step="10" value={opacity} onChange={e => setOpacity(+e.target.value)}
+              style={{ writingMode: 'vertical-lr', height: 60, cursor: 'pointer', accentColor: '#e63022' }} />
+          </div>
+
+          {/* CANVAS AREA */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0a0a0a' }}>
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+              <canvas ref={canvasRef} width={800} height={600}
+                style={{ maxWidth: '100%', maxHeight: '100%', background: '#0f0f0f', cursor: tool === 'eraser' ? 'cell' : tool === 'spray' ? 'crosshair' : 'crosshair', borderRadius: 4, touchAction: 'none' }}
+                onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+              />
+            </div>
+            {/* Vote bar */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', borderTop: '1px solid #222', background: '#111', flexShrink: 0, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: '#666' }}>Vote :</span>
+              {[['👍', 'up'], ['❤️', 'heart'], ['👎', 'down']].map(([icon, v]) => (
+                <button key={v} onClick={() => vote(v)} style={{ ...S.btn(myVote === v ? 'primary' : 'ghost'), padding: '4px 10px', fontSize: 13 }}>
+                  {icon} {votes[v] || 0}
+                </button>
+              ))}
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#666' }}>🟢 Collaboratif — les autres membres voient ton dessin en direct</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1033,12 +1280,34 @@ function ConferencePage() {
     return () => offs.forEach(f => f && f());
   }, [on, inConf]);
 
+  const [sharedFiles, setSharedFiles] = useState([]);
+  const confFileRef = useRef(null);
+
+  useEffect(() => {
+    const off = on('FILE_SHARE', (d) => {
+      setSharedFiles(p => [...p, d]);
+      playSound('message');
+      sendPushNotif('Fichier partagé', d.fromUsername + ' a partagé ' + d.fileName, 'file');
+    });
+    return off;
+  }, [on]);
+
+  const shareFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      send({ type: 'FILE_SHARE', fileName: file.name, fileData: ev.target.result, fileType: file.type });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const peerList = Object.entries(peers);
 
   return (
     <div style={{ padding: '16px 12px' }}>
       <h2 style={{ fontSize: 18, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3, marginBottom: 8 }}>CONFÉRENCE ÉQUIPE</h2>
-      <p style={{ color: '#666', fontSize: 13, marginBottom: 24 }}>Appel vidéo avec tous les membres de streetRoots en même temps.</p>
+      <p style={{ color: '#666', fontSize: 13, marginBottom: 16 }}>Appel vidéo avec tous les membres de streetRoots en même temps.</p>
 
       {!inConf ? (
         <div style={{ ...S.card, maxWidth: 400, textAlign: 'center', padding: 40 }}>
@@ -1063,7 +1332,28 @@ function ConferencePage() {
           {peerList.length === 0 && (
             <div style={{ color: '#555', fontSize: 13, marginBottom: 16 }}>En attente que d'autres membres rejoignent...</div>
           )}
-          <button style={S.btn('danger')} onClick={leaveConference}>🔴 Quitter la conférence</button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+            <button style={S.btn('danger')} onClick={leaveConference}>🔴 Quitter</button>
+            <input ref={confFileRef} type="file" style={{ display: 'none' }} onChange={shareFile} />
+            <button style={S.btn('ghost')} onClick={() => confFileRef.current.click()}>📎 Partager un fichier</button>
+          </div>
+          {sharedFiles.length > 0 && (
+            <div style={{ ...S.card, marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: '#888', marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }}>Fichiers partagés</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {sharedFiles.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#1e1e1e', padding: '8px 12px', borderRadius: 4 }}>
+                    <span style={{ fontSize: 18 }}>{f.fileType?.startsWith('image') ? '🖼️' : '📄'}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{f.fileName}</div>
+                      <div style={{ fontSize: 10, color: '#666' }}>Partagé par {f.fromUsername}</div>
+                    </div>
+                    <a href={f.fileData} download={f.fileName} style={{ ...S.btn('sm'), textDecoration: 'none', fontSize: 11 }}>⬇️</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1093,14 +1383,24 @@ const PAGES = {
   design: { label: 'Studio Design', icon: '✏️', component: DesignPage },
 };
 
+function BadgeDot({ count }) {
+  if (!count) return null;
+  return (
+    <div style={{ minWidth: 16, height: 16, background: '#e63022', borderRadius: 8, fontSize: 9, fontWeight: 700, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', marginLeft: 'auto' }}>
+      {count > 9 ? '9+' : count}
+    </div>
+  );
+}
+
 function AppLayout() {
   const { user, logout } = useAuth();
-  const { online } = useWS();
+  const { online, on } = useWS();
   const api = useApi();
   const [page, setPage] = useState('messaging');
   const [users, setUsers] = useState([]);
   const [mobile, setMobile] = useState(window.innerWidth <= 768);
   const [sideOpen, setSideOpen] = useState(false);
+  const [badges, setBadges] = useState({ messaging: 0, tasks: 0 });
 
   useEffect(() => {
     api.get('/api/users').then(setUsers).catch(() => {});
@@ -1109,6 +1409,34 @@ function AppLayout() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    const offs = [
+      on('MESSAGE', (d) => {
+        if (d.message && d.message.from !== user.id) {
+          setBadges(b => ({ ...b, messaging: b.messaging + 1 }));
+        }
+      }),
+      on('TASK_CREATED', (d) => {
+        if (d.task && d.task.createdBy !== user.id) {
+          setBadges(b => ({ ...b, tasks: b.tasks + 1 }));
+        }
+      }),
+      on('TASK_UPDATED', (d) => {
+        if (d.task && d.task.assignedTo === user.id) {
+          setBadges(b => ({ ...b, tasks: b.tasks + 1 }));
+        }
+      }),
+    ];
+    return () => offs.forEach(f => f && f());
+  }, [on, user]);
+
+  const goTo = (id) => {
+    setPage(id);
+    setSideOpen(false);
+    if (id === 'messaging') setBadges(b => ({ ...b, messaging: 0 }));
+    if (id === 'tasks') setBadges(b => ({ ...b, tasks: 0 }));
+  };
 
   const Page = user?.role === 'founder' && page === 'founder' ? FounderPage : (PAGES[page]?.component || MessagingPage);
 
@@ -1120,7 +1448,7 @@ function AppLayout() {
   // Bottom nav shows only main 5 items on mobile
   const bottomItems = allPages.slice(0, user?.role === 'founder' ? 6 : 5);
 
-  const goTo = (id) => { setPage(id); setSideOpen(false); };
+
 
   const currentLabel = page === 'founder' ? 'Contrôle Accès' : (PAGES[page]?.label || '');
   const currentIcon = page === 'founder' ? '🔐' : (PAGES[page]?.icon || '');
@@ -1146,6 +1474,7 @@ function AppLayout() {
             {allPages.map(item => (
               <div key={item.id} style={S.navItem(page === item.id)} onClick={() => goTo(item.id)}>
                 <span>{item.icon}</span> {item.label}
+                <BadgeDot count={badges[item.id] || 0} />
               </div>
             ))}
             <div style={S.navSection}>Équipe en ligne</div>
@@ -1185,6 +1514,7 @@ function AppLayout() {
               {allPages.map(item => (
                 <div key={item.id} style={{ ...S.navItem(page === item.id), padding: '14px 16px', fontSize: 15 }} onClick={() => goTo(item.id)}>
                   <span style={{ fontSize: 18 }}>{item.icon}</span> {item.label}
+                  <BadgeDot count={badges[item.id] || 0} />
                 </div>
               ))}
               <div style={S.navSection}>Équipe en ligne</div>
@@ -1224,8 +1554,15 @@ function AppLayout() {
           <div style={S.bottomNav}>
             {bottomItems.map(item => (
               <div key={item.id} style={S.bottomNavItem(page === item.id)} onClick={() => goTo(item.id)}>
-                <span style={{ fontSize: 20 }}>{item.icon}</span>
-                <span style={{ fontSize: 9, letterSpacing: 0.5 }}>{item.label.split(' ')[0]}</span>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ fontSize: 22 }}>{item.icon}</span>
+                  {(badges[item.id] || 0) > 0 && (
+                    <div style={{ position: 'absolute', top: -4, right: -8, minWidth: 14, height: 14, background: '#e63022', borderRadius: 7, fontSize: 8, fontWeight: 700, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>
+                      {badges[item.id] > 9 ? '9+' : badges[item.id]}
+                    </div>
+                  )}
+                </div>
+                <span style={{ fontSize: 9 }}>{item.label.split(' ')[0]}</span>
               </div>
             ))}
           </div>
