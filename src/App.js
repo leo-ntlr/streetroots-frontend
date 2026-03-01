@@ -7,6 +7,63 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:3001/ws';
 
 // ============================================================
+// SOUNDS
+// ============================================================
+const playSound = (type) => {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.connect(g); g.connect(ctx.destination);
+  if (type === 'ring') {
+    // Sonnerie appel — 3 bips montants
+    const times = [0, 0.3, 0.6];
+    times.forEach((t, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 480 + i * 120;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.2);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.2);
+    });
+  } else if (type === 'message') {
+    o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    o.start(); o.stop(ctx.currentTime + 0.15);
+  } else if (type === 'task') {
+    o.frequency.value = 660;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    o.start(); o.stop(ctx.currentTime + 0.2);
+  } else if (type === 'approve') {
+    [523, 659, 784].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.15);
+      osc.start(ctx.currentTime + i * 0.1);
+      osc.stop(ctx.currentTime + i * 0.1 + 0.15);
+    });
+  }
+};
+
+const sendPushNotif = (title, body, tag) => {
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, tag, icon: '/favicon.ico', badge: '/favicon.ico' });
+  }
+};
+
+const requestNotifPermission = () => {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+};
+
+// ============================================================
 // AUTH CONTEXT
 // ============================================================
 const AuthContext = createContext(null);
@@ -112,34 +169,41 @@ function useApi() {
 // ============================================================
 // STYLES
 // ============================================================
+const isMobile = () => window.innerWidth <= 768;
+
 const S = {
-  app: { display: 'flex', height: '100vh', background: '#0a0a0a', color: '#f0ebe0', fontFamily: "'Space Grotesk', 'DM Sans', system-ui, sans-serif", overflow: 'hidden' },
-  sidebar: { width: 260, background: '#111', borderRight: '1px solid #222', display: 'flex', flexDirection: 'column', flexShrink: 0 },
-  sideHeader: { padding: '20px 16px', borderBottom: '1px solid #222' },
-  logo: { fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 22, letterSpacing: 4, color: '#f0ebe0' },
+  app: { display: 'flex', flexDirection: 'column', height: '100vh', height: '100dvh', background: '#0a0a0a', color: '#f0ebe0', fontFamily: "'DM Sans', system-ui, sans-serif", overflow: 'hidden' },
+  // Desktop sidebar (hidden on mobile)
+  sidebar: { width: 240, background: '#111', borderRight: '1px solid #222', display: 'flex', flexDirection: 'column', flexShrink: 0 },
+  sideHeader: { padding: '16px 14px', borderBottom: '1px solid #222' },
+  logo: { fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 20, letterSpacing: 4, color: '#f0ebe0' },
   logoRed: { color: '#e63022' },
   userBadge: { marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 },
   avatar: { width: 28, height: 28, borderRadius: '50%', background: '#e63022', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'white', flexShrink: 0 },
-  username: { fontSize: 13, color: '#aaa' },
+  username: { fontSize: 12, color: '#aaa' },
   roleBadge: { fontSize: 9, letterSpacing: 1, padding: '2px 6px', background: '#e63022', color: 'white', borderRadius: 2, textTransform: 'uppercase' },
   nav: { flex: 1, padding: '8px 0', overflowY: 'auto' },
-  navSection: { padding: '16px 16px 4px', fontSize: 10, letterSpacing: 2, color: '#555', textTransform: 'uppercase' },
-  navItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', cursor: 'pointer', background: active ? '#1e1e1e' : 'transparent', borderLeft: active ? '2px solid #e63022' : '2px solid transparent', color: active ? '#f0ebe0' : '#777', fontSize: 13, transition: 'all 0.15s' }),
+  navSection: { padding: '12px 14px 4px', fontSize: 9, letterSpacing: 2, color: '#555', textTransform: 'uppercase' },
+  navItem: (active) => ({ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer', background: active ? '#1e1e1e' : 'transparent', borderLeft: active ? '2px solid #e63022' : '2px solid transparent', color: active ? '#f0ebe0' : '#777', fontSize: 13, transition: 'all 0.15s', WebkitTapHighlightColor: 'transparent' }),
   dot: (online) => ({ width: 7, height: 7, borderRadius: '50%', background: online ? '#4caf50' : '#555', flexShrink: 0 }),
-  main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-  topbar: { padding: '0 24px', height: 52, borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#111', flexShrink: 0 },
-  topTitle: { fontSize: 15, fontWeight: 600, color: '#f0ebe0' },
-  content: { flex: 1, overflow: 'auto' },
+  main: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 },
+  topbar: { padding: '0 16px', height: 50, borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#111', flexShrink: 0 },
+  topTitle: { fontSize: 14, fontWeight: 600, color: '#f0ebe0' },
+  content: { flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch' },
   btn: (variant = 'primary') => ({
-    padding: variant === 'sm' ? '6px 12px' : '10px 20px',
+    padding: variant === 'sm' ? '6px 10px' : '10px 18px',
     background: variant === 'danger' ? '#c0392b' : variant === 'ghost' ? 'transparent' : '#e63022',
     color: '#fff', border: variant === 'ghost' ? '1px solid #444' : 'none',
-    borderRadius: 4, cursor: 'pointer', fontSize: variant === 'sm' ? 12 : 13,
+    borderRadius: 4, cursor: 'pointer', fontSize: variant === 'sm' ? 11 : 13,
     fontFamily: 'inherit', fontWeight: 500, transition: 'opacity 0.15s',
+    WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
   }),
-  input: { background: '#1e1e1e', border: '1px solid #333', color: '#f0ebe0', padding: '10px 14px', borderRadius: 4, fontSize: 13, fontFamily: 'inherit', width: '100%', outline: 'none', boxSizing: 'border-box' },
-  card: { background: '#161616', border: '1px solid #222', borderRadius: 6, padding: 20 },
+  input: { background: '#1e1e1e', border: '1px solid #333', color: '#f0ebe0', padding: '12px 14px', borderRadius: 4, fontSize: 16, fontFamily: 'inherit', width: '100%', outline: 'none', boxSizing: 'border-box', WebkitAppearance: 'none' },
+  card: { background: '#161616', border: '1px solid #222', borderRadius: 6, padding: 16 },
   tag: (color) => ({ display: 'inline-block', padding: '2px 8px', borderRadius: 3, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600, background: color === 'red' ? '#e63022' : color === 'green' ? '#2d6a2d' : color === 'orange' ? '#7a5000' : color === 'blue' ? '#1a3a6a' : '#2a2a2a', color: '#fff' }),
+  // Bottom nav for mobile
+  bottomNav: { display: 'flex', background: '#111', borderTop: '1px solid #222', flexShrink: 0, paddingBottom: 'env(safe-area-inset-bottom)' },
+  bottomNavItem: (active) => ({ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 4px 6px', cursor: 'pointer', color: active ? '#e63022' : '#666', fontSize: 9, gap: 3, WebkitTapHighlightColor: 'transparent', borderTop: active ? '2px solid #e63022' : '2px solid transparent', transition: 'all 0.15s' }),
 };
 
 // ============================================================
@@ -166,8 +230,8 @@ function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 360 }}>
+    <div style={{ minHeight: '100vh', minHeight: '100dvh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px' }}>
+      <div style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 36, letterSpacing: 6 }}>street<span style={{ color: '#e63022' }}>Roots</span></div>
           <div style={{ fontSize: 11, color: '#555', letterSpacing: 2, marginTop: 4 }}>INTERNAL OS</div>
@@ -211,8 +275,8 @@ function RegisterPage({ code }) {
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 360 }}>
+    <div style={{ minHeight: '100vh', minHeight: '100dvh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px' }}>
+      <div style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ fontFamily: 'Bebas Neue, Impact, sans-serif', fontSize: 36, letterSpacing: 6 }}>street<span style={{ color: '#e63022' }}>Roots</span></div>
           <div style={{ fontSize: 11, color: '#4caf50', letterSpacing: 2, marginTop: 4 }}>INVITATION VALIDE ✓</div>
@@ -256,7 +320,13 @@ function MessagingPage() {
       if (!selected) return;
       const m = data.message;
       const relevant = (m.channel === selected.id) || (m.type === 'dm' && (m.from === selected.id || m.to === selected.id));
-      if (relevant) setMessages(p => [...p, m]);
+      if (relevant) {
+        setMessages(p => [...p, m]);
+        if (m.from !== user.id) {
+          playSound('message');
+          sendPushNotif('Nouveau message', `${m.fromUsername}: ${m.content.slice(0, 60)}`, 'message');
+        }
+      }
     });
     return off;
   }, [on, selected]);
@@ -271,7 +341,7 @@ function MessagingPage() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       {/* Sidebar canaux */}
       <div style={{ width: 200, background: '#0f0f0f', borderRight: '1px solid #1e1e1e', overflow: 'auto', flexShrink: 0 }}>
         <div style={{ padding: '12px 14px 4px', fontSize: 10, color: '#555', letterSpacing: 2, textTransform: 'uppercase' }}>Canaux</div>
@@ -400,7 +470,11 @@ function VideoPage() {
   // WS listeners
   useEffect(() => {
     const offs = [
-      on('VIDEO_CALL_REQUEST', (d) => { setIncomingCall(d); }),
+      on('VIDEO_CALL_REQUEST', (d) => {
+        setIncomingCall(d);
+        playSound('ring');
+        sendPushNotif('📞 Appel entrant', `${d.fromUsername} t'appelle`, 'call');
+      }),
       on('VIDEO_CALL_ACCEPT', () => { setCallState('in-call'); }),
       on('VIDEO_CALL_REJECT', () => { setCallState('idle'); setRemoteUser(null); alert('Appel refusé'); }),
       on('VIDEO_CALL_END', () => { endCall(); }),
@@ -421,8 +495,8 @@ function VideoPage() {
   }, [on, remoteUser]);
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ fontSize: 20, marginBottom: 20, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3 }}>APPELS & VIDÉO</h2>
+    <div style={{ padding: '16px 12px' }}>
+      <h2 style={{ fontSize: 18, marginBottom: 16, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3 }}>APPELS & VIDÉO</h2>
 
       {/* Incoming call */}
       {incomingCall && (
@@ -440,7 +514,7 @@ function VideoPage() {
       {/* In-call view */}
       {callState !== 'idle' && (
         <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 16 }}>
             <div style={{ background: '#000', borderRadius: 8, overflow: 'hidden', aspectRatio: '16/9', position: 'relative' }}>
               <video ref={remoteRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               <div style={{ position: 'absolute', bottom: 8, left: 12, fontSize: 12, color: '#fff', background: 'rgba(0,0,0,0.5)', padding: '2px 8px', borderRadius: 3 }}>{remoteUser?.username || 'Connexion...'}</div>
@@ -505,8 +579,23 @@ function TasksPage() {
 
   useEffect(() => {
     const offs = [
-      on('TASK_CREATED', (d) => setTasks(p => [...p, d.task])),
-      on('TASK_UPDATED', (d) => setTasks(p => p.map(t => t.id === d.task.id ? d.task : t))),
+      on('TASK_CREATED', (d) => {
+        setTasks(p => [...p, d.task]);
+        if (d.task.createdBy !== user.id) {
+          playSound('task');
+          sendPushNotif('Nouvelle tâche', d.task.title, 'task');
+        }
+        if (d.task.assignedTo === user.id) {
+          playSound('task');
+          sendPushNotif('Tâche assignée', `"${d.task.title}" t'a été assignée`, 'task-assigned');
+        }
+      }),
+      on('TASK_UPDATED', (d) => {
+        setTasks(p => p.map(t => t.id === d.task.id ? d.task : t));
+        if (d.task.assignedTo === user.id && d.task.status !== 'fait') {
+          sendPushNotif('Tâche mise à jour', `"${d.task.title}" → ${d.task.status}`, 'task-update');
+        }
+      }),
       on('TASK_DELETED', (d) => setTasks(p => p.filter(t => t.id !== d.taskId))),
     ];
     return () => offs.forEach(f => f && f());
@@ -536,9 +625,9 @@ function TasksPage() {
   const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ fontSize: 20, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3 }}>TÂCHES & PROJET</h2>
+    <div style={{ padding: '16px 12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3 }}>TÂCHES & PROJET</h2>
         <button style={S.btn()} onClick={() => setModal('create')}>+ Nouvelle tâche</button>
       </div>
 
@@ -562,7 +651,7 @@ function TasksPage() {
       </div>
 
       {/* Kanban */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
         {STATUSES.map(status => (
           <div key={status.id}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -595,7 +684,7 @@ function TasksPage() {
       {/* Create Modal */}
       {modal === 'create' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ ...S.card, width: 440, maxHeight: '90vh', overflow: 'auto' }}>
+          <div style={{ ...S.card, width: 'min(440px, 96vw)', maxHeight: '90vh', overflow: 'auto' }}>
             <h3 style={{ fontSize: 16, marginBottom: 20, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 2 }}>NOUVELLE TÂCHE</h3>
             <form onSubmit={createTask} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <input style={S.input} placeholder="Titre de la tâche *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required />
@@ -654,8 +743,8 @@ function FounderPage() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2 style={{ fontSize: 20, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3, marginBottom: 24 }}>DASHBOARD FONDATEUR</h2>
+    <div style={{ padding: '16px 12px' }}>
+      <h2 style={{ fontSize: 18, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3, marginBottom: 16 }}>DASHBOARD FONDATEUR</h2>
 
       {/* Generate invite */}
       <div style={{ ...S.card, marginBottom: 24 }}>
@@ -712,6 +801,7 @@ function FounderPage() {
                 <span style={S.tag(u.status === 'approved' ? 'green' : 'red')}>{u.status}</span>
                 <span style={S.tag('blue')}>{u.role}</span>
                 {u.status === 'approved' && <button style={S.btn('danger')} onClick={() => suspend(u.id)}>Suspendre</button>}
+                <button style={{ ...S.btn('danger'), background: '#5a0a0a' }} onClick={async () => { if(window.confirm('Supprimer définitivement ' + u.username + ' ?')) { await api.del('/api/founder/delete/' + u.id); load(); } }}>Supprimer</button>
               </div>
             </div>
           ))}
@@ -847,12 +937,158 @@ function DesignPage() {
   );
 }
 
+
+// ============================================================
+// CONFERENCE PAGE — Appel groupe avec tous les membres
+// ============================================================
+function ConferencePage() {
+  const { user } = useAuth();
+  const { send, on } = useWS();
+  const api = useApi();
+  const [users, setUsers] = useState([]);
+  const [inConf, setInConf] = useState(false);
+  const [peers, setPeers] = useState({}); // userId -> { pc, stream }
+  const localRef = useRef(null);
+  const streamRef = useRef(null);
+  const pcsRef = useRef({});
+
+  useEffect(() => { api.get('/api/users').then(u => setUsers(u.filter(x => x.id !== user.id))); }, []);
+
+  const getMedia = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    streamRef.current = stream;
+    if (localRef.current) localRef.current.srcObject = stream;
+    return stream;
+  };
+
+  const createPCForPeer = (peerId) => {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    pcsRef.current[peerId] = pc;
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) send({ type: 'VIDEO_ICE', to: peerId, candidate: e.candidate });
+    };
+
+    pc.ontrack = (e) => {
+      setPeers(p => ({ ...p, [peerId]: { ...p[peerId], stream: e.streams[0] } }));
+    };
+
+    streamRef.current?.getTracks().forEach(t => pc.addTrack(t, streamRef.current));
+    return pc;
+  };
+
+  const joinConference = async () => {
+    const stream = await getMedia();
+    streamRef.current = stream;
+    setInConf(true);
+    send({ type: 'CONFERENCE_JOIN' });
+    playSound('ring');
+  };
+
+  const leaveConference = () => {
+    Object.values(pcsRef.current).forEach(pc => pc.close());
+    pcsRef.current = {};
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    if (localRef.current) localRef.current.srcObject = null;
+    setPeers({});
+    setInConf(false);
+    send({ type: 'CONFERENCE_LEAVE' });
+  };
+
+  useEffect(() => {
+    const offs = [
+      on('CONFERENCE_USER_JOINED', async (d) => {
+        if (!inConf || !streamRef.current) return;
+        playSound('ring');
+        sendPushNotif('Conference', d.fromUsername + ' a rejoint', 'conf');
+        const pc = createPCForPeer(d.from);
+        setPeers(p => ({ ...p, [d.from]: { username: d.fromUsername } }));
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        send({ type: 'VIDEO_OFFER', to: d.from, offer });
+      }),
+      on('CONFERENCE_USER_LEFT', (d) => {
+        if (pcsRef.current[d.from]) { pcsRef.current[d.from].close(); delete pcsRef.current[d.from]; }
+        setPeers(p => { const n = {...p}; delete n[d.from]; return n; });
+      }),
+      on('VIDEO_OFFER', async (d) => {
+        if (!inConf) return;
+        let pc = pcsRef.current[d.from];
+        if (!pc) { pc = createPCForPeer(d.from); setPeers(p => ({ ...p, [d.from]: { username: d.fromUsername } })); }
+        await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        send({ type: 'VIDEO_ANSWER', to: d.from, answer });
+      }),
+      on('VIDEO_ANSWER', async (d) => {
+        const pc = pcsRef.current[d.from];
+        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
+      }),
+      on('VIDEO_ICE', async (d) => {
+        const pc = pcsRef.current[d.from];
+        if (pc) try { await pc.addIceCandidate(new RTCIceCandidate(d.candidate)); } catch {}
+      }),
+    ];
+    return () => offs.forEach(f => f && f());
+  }, [on, inConf]);
+
+  const peerList = Object.entries(peers);
+
+  return (
+    <div style={{ padding: '16px 12px' }}>
+      <h2 style={{ fontSize: 18, fontFamily: 'Bebas Neue, sans-serif', letterSpacing: 3, marginBottom: 8 }}>CONFÉRENCE ÉQUIPE</h2>
+      <p style={{ color: '#666', fontSize: 13, marginBottom: 24 }}>Appel vidéo avec tous les membres de streetRoots en même temps.</p>
+
+      {!inConf ? (
+        <div style={{ ...S.card, maxWidth: 400, textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🎥</div>
+          <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Lancer une conférence</div>
+          <div style={{ fontSize: 13, color: '#666', marginBottom: 24 }}>Tous les membres connectés recevront une notification et pourront rejoindre.</div>
+          <button style={S.btn()} onClick={joinConference}>Rejoindre la conférence</button>
+        </div>
+      ) : (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 16 }}>
+            {/* Local video */}
+            <div style={{ background: '#111', borderRadius: 8, overflow: 'hidden', aspectRatio: '16/9', position: 'relative', border: '2px solid #e63022' }}>
+              <video ref={localRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 11, background: 'rgba(0,0,0,0.6)', color: 'white', padding: '2px 8px', borderRadius: 3 }}>Toi</div>
+            </div>
+            {/* Remote peers */}
+            {peerList.map(([peerId, peer]) => (
+              <PeerVideo key={peerId} peerId={peerId} peer={peer} />
+            ))}
+          </div>
+          {peerList.length === 0 && (
+            <div style={{ color: '#555', fontSize: 13, marginBottom: 16 }}>En attente que d'autres membres rejoignent...</div>
+          )}
+          <button style={S.btn('danger')} onClick={leaveConference}>🔴 Quitter la conférence</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PeerVideo({ peerId, peer }) {
+  const videoRef = useRef(null);
+  useEffect(() => {
+    if (videoRef.current && peer.stream) videoRef.current.srcObject = peer.stream;
+  }, [peer.stream]);
+  return (
+    <div style={{ background: '#111', borderRadius: 8, overflow: 'hidden', aspectRatio: '16/9', position: 'relative' }}>
+      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: 11, background: 'rgba(0,0,0,0.6)', color: 'white', padding: '2px 8px', borderRadius: 3 }}>{peer.username || peerId}</div>
+    </div>
+  );
+}
 // ============================================================
 // MAIN APP
 // ============================================================
 const PAGES = {
   messaging: { label: 'Messagerie', icon: '💬', component: MessagingPage },
   video: { label: 'Vidéo & Appels', icon: '🎥', component: VideoPage },
+  conference: { label: 'Conférence', icon: '👥', component: ConferencePage },
   tasks: { label: 'Tâches', icon: '✅', component: TasksPage },
   design: { label: 'Studio Design', icon: '✏️', component: DesignPage },
 };
@@ -863,54 +1099,137 @@ function AppLayout() {
   const api = useApi();
   const [page, setPage] = useState('messaging');
   const [users, setUsers] = useState([]);
+  const [mobile, setMobile] = useState(window.innerWidth <= 768);
+  const [sideOpen, setSideOpen] = useState(false);
 
-  useEffect(() => { api.get('/api/users').then(setUsers).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get('/api/users').then(setUsers).catch(() => {});
+    requestNotifPermission();
+    const onResize = () => setMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const Page = user?.role === 'founder' && page === 'founder' ? FounderPage : (PAGES[page]?.component || MessagingPage);
 
-  const navItems = [
+  const allPages = [
     ...Object.entries(PAGES).map(([id, p]) => ({ id, ...p })),
     ...(user?.role === 'founder' ? [{ id: 'founder', label: 'Contrôle Accès', icon: '🔐' }] : []),
   ];
 
+  // Bottom nav shows only main 5 items on mobile
+  const bottomItems = allPages.slice(0, user?.role === 'founder' ? 6 : 5);
+
+  const goTo = (id) => { setPage(id); setSideOpen(false); };
+
+  const currentLabel = page === 'founder' ? 'Contrôle Accès' : (PAGES[page]?.label || '');
+  const currentIcon = page === 'founder' ? '🔐' : (PAGES[page]?.icon || '');
+
   return (
-    <div style={S.app}>
-      <div style={S.sidebar}>
-        <div style={S.sideHeader}>
-          <div style={S.logo}>street<span style={S.logoRed}>Roots</span></div>
-          <div style={S.userBadge}>
-            <div style={S.avatar}>{user.username[0].toUpperCase()}</div>
-            <div>
-              <div style={S.username}>{user.username}</div>
-              <span style={S.roleBadge}>{user.role}</span>
+    <div style={{ ...S.app, flexDirection: mobile ? 'column' : 'row' }}>
+
+      {/* DESKTOP SIDEBAR */}
+      {!mobile && (
+        <div style={S.sidebar}>
+          <div style={S.sideHeader}>
+            <div style={S.logo}>street<span style={S.logoRed}>Roots</span></div>
+            <div style={S.userBadge}>
+              <div style={S.avatar}>{user.username[0].toUpperCase()}</div>
+              <div>
+                <div style={S.username}>{user.username}</div>
+                <span style={S.roleBadge}>{user.role}</span>
+              </div>
+            </div>
+          </div>
+          <div style={S.nav}>
+            <div style={S.navSection}>Navigation</div>
+            {allPages.map(item => (
+              <div key={item.id} style={S.navItem(page === item.id)} onClick={() => goTo(item.id)}>
+                <span>{item.icon}</span> {item.label}
+              </div>
+            ))}
+            <div style={S.navSection}>Équipe en ligne</div>
+            {users.filter(u => u.id !== user.id).map(u => (
+              <div key={u.id} style={S.navItem(false)}>
+                <span style={S.dot(online.includes(u.id))} />{u.username}
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: 12, borderTop: '1px solid #222' }}>
+            <button style={{ ...S.btn('ghost'), width: '100%', fontSize: 11 }} onClick={logout}>Déconnexion</button>
+          </div>
+        </div>
+      )}
+
+      {/* MOBILE SLIDE MENU */}
+      {mobile && sideOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200 }} onClick={() => setSideOpen(false)}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)' }} />
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 260, background: '#111', display: 'flex', flexDirection: 'column', zIndex: 201 }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={S.logo}>street<span style={S.logoRed}>Roots</span></div>
+                <div style={S.userBadge}>
+                  <div style={S.avatar}>{user.username[0].toUpperCase()}</div>
+                  <div>
+                    <div style={S.username}>{user.username}</div>
+                    <span style={S.roleBadge}>{user.role}</span>
+                  </div>
+                </div>
+              </div>
+              <button style={{ background: 'none', border: 'none', color: '#888', fontSize: 22, cursor: 'pointer', padding: 4 }} onClick={() => setSideOpen(false)}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+              <div style={S.navSection}>Navigation</div>
+              {allPages.map(item => (
+                <div key={item.id} style={{ ...S.navItem(page === item.id), padding: '14px 16px', fontSize: 15 }} onClick={() => goTo(item.id)}>
+                  <span style={{ fontSize: 18 }}>{item.icon}</span> {item.label}
+                </div>
+              ))}
+              <div style={S.navSection}>Équipe en ligne</div>
+              {users.filter(u => u.id !== user.id).map(u => (
+                <div key={u.id} style={{ ...S.navItem(false), padding: '10px 16px' }}>
+                  <span style={S.dot(online.includes(u.id))} />{u.username}
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: 16, borderTop: '1px solid #222' }}>
+              <button style={{ ...S.btn('ghost'), width: '100%' }} onClick={logout}>Déconnexion</button>
             </div>
           </div>
         </div>
-        <div style={S.nav}>
-          <div style={S.navSection}>Navigation</div>
-          {navItems.map(item => (
-            <div key={item.id} style={S.navItem(page === item.id)} onClick={() => setPage(item.id)}>
-              <span>{item.icon}</span> {item.label}
-            </div>
-          ))}
-          <div style={S.navSection}>Équipe en ligne</div>
-          {users.filter(u => u.id !== user.id).map(u => (
-            <div key={u.id} style={S.navItem(false)}>
-              <span style={S.dot(online.includes(u.id))} />{u.username}
-            </div>
-          ))}
+      )}
+
+      {/* MAIN CONTENT */}
+      <div style={{ ...S.main, flexDirection: 'column' }}>
+        {/* TOPBAR */}
+        <div style={{ ...S.topbar, padding: mobile ? '0 12px' : '0 20px' }}>
+          {mobile && (
+            <button style={{ background: 'none', border: 'none', color: '#f0ebe0', fontSize: 20, cursor: 'pointer', padding: '4px 8px 4px 0', lineHeight: 1 }} onClick={() => setSideOpen(true)}>☰</button>
+          )}
+          <div style={S.topTitle}>{currentIcon} {currentLabel}</div>
+          {mobile && (
+            <div style={{ ...S.avatar, width: 30, height: 30, fontSize: 13 }}>{user.username[0].toUpperCase()}</div>
+          )}
         </div>
-        <div style={{ padding: 16, borderTop: '1px solid #222' }}>
-          <button style={{ ...S.btn('ghost'), width: '100%', fontSize: 12 }} onClick={logout}>Déconnexion</button>
-        </div>
-      </div>
-      <div style={S.main}>
-        <div style={S.topbar}>
-          <div style={S.topTitle}>{page === 'founder' ? '🔐 Contrôle Accès' : PAGES[page] ? `${PAGES[page].icon} ${PAGES[page].label}` : ''}</div>
-        </div>
+
+        {/* PAGE CONTENT */}
         <div style={S.content}>
           <Page />
         </div>
+
+        {/* MOBILE BOTTOM NAV */}
+        {mobile && (
+          <div style={S.bottomNav}>
+            {bottomItems.map(item => (
+              <div key={item.id} style={S.bottomNavItem(page === item.id)} onClick={() => goTo(item.id)}>
+                <span style={{ fontSize: 20 }}>{item.icon}</span>
+                <span style={{ fontSize: 9, letterSpacing: 0.5 }}>{item.label.split(' ')[0]}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
